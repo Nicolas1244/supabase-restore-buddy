@@ -1,0 +1,20 @@
+{
+  "modal": {
+    "manageDay": "Manage Day",
+    "shifts": "Shifts",
+    "absence": "Absence",
+    "addShift": "Add Shift",
+    "shift": "Shift {{index}}",
+    "startTime": "Start Time",
+    "endTime": "End Time",
+    "absenceType": "Absence Type",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete"
+  },
+  "errors": {
+    "maxShiftsReached": "Maximum 2 shifts per day reached for this employee.",
+    "addAtLeastOneShift": "Please add at least one shift.",
+    "saveFailed": "An error occurred while saving."
+  }
+}

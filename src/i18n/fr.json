@@ -1,0 +1,20 @@
+{
+  "modal": {
+    "manageDay": "Gérer la journée",
+    "shifts": "Services",
+    "absence": "Absence",
+    "addShift": "Ajouter un service",
+    "shift": "Service {{index}}",
+    "startTime": "Heure de début",
+    "endTime": "Heure de fin",
+    "absenceType": "Type d'Absence",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer"
+  },
+  "errors": {
+    "maxShiftsReached": "Maximum 2 services par jour atteints pour cet employé.",
+    "addAtLeastOneShift": "Veuillez ajouter au moins un service.",
+    "saveFailed": "Une erreur est survenue lors de l'enregistrement."
+  }
+}
