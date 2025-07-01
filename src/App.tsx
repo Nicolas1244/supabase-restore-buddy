@@ -1,45 +1,34 @@
+import React from 'react';
+import Layout from './components/layout/Layout';
+import DashboardPage from './components/dashboard/DashboardPage';
+import RestaurantsPage from './components/restaurants/RestaurantsPage';
+import SchedulePage from './components/schedule/SchedulePage';
+import StaffPage from './components/staff/StaffPage';
+import SettingsPage from './components/settings/SettingsPage';
+import PerformancePage from './components/performance/PerformancePage';
+import TimeClockPage from './components/timeclock/TimeClockPage';
+import AuthModal from './components/auth/AuthModal';
+import { Toaster } from 'react-hot-toast';
+import { useAppContext } from './contexts/AppContext';
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AppLayout } from "./components/layout/AppLayout";
-import Dashboard from "./pages/Dashboard";
-import Restaurants from "./pages/Restaurants";
-import Personnel from "./pages/Personnel";
-import Planning from "./pages/Planning";
-import TimeClock from "./pages/TimeClock";
-import Performance from "./pages/Performance";
-import Financial from "./pages/Financial";
-import Settings from "./pages/Settings";
-import NotFound from "./pages/NotFound";
+function App() {
+  const { currentTab } = useAppContext();
 
-const queryClient = new QueryClient();
-
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AppLayout>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/restaurants" element={<Restaurants />} />
-            <Route path="/personnel" element={<Personnel />} />
-            <Route path="/planning" element={<Planning />} />
-            <Route path="/time-clock" element={<TimeClock />} />
-            <Route path="/performance" element={<Performance />} />
-            <Route path="/financial" element={<Financial />} />
-            <Route path="/settings" element={<Settings />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AppLayout>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+  return (
+    <>
+      <Layout>
+        {currentTab === 'dashboard' && <DashboardPage />}
+        {currentTab === 'restaurants' && <RestaurantsPage />}
+        {currentTab === 'schedule' && <SchedulePage />}
+        {currentTab === 'staff' && <StaffPage />}
+        {currentTab === 'settings' && <SettingsPage />}
+        {currentTab === 'performance' && <PerformancePage />}
+        {currentTab === 'timeclock' && <TimeClockPage />}
+      </Layout>
+      <AuthModal />
+      <Toaster position="top-right" />
+    </>
+  );
+}
 
 export default App;
