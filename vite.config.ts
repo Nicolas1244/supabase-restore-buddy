@@ -1,10 +1,17 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  optimizeDeps: {
-    exclude: ['lucide-react'],
+  server: {
+    // Proxy requests starting with /api to the backend server
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001', // Your backend server address
+        changeOrigin: true, // Needed for virtual hosted sites
+        // rewrite: (path) => path.replace(/^\/api/, ''), // This line is removed
+      },
+    },
   },
-})
+});
