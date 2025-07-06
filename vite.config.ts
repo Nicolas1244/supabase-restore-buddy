@@ -10,7 +10,7 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3001', // Your backend server address
         changeOrigin: true, // Needed for virtual hosted sites
-        // rewrite: (path) => path.replace(/^\/api/, ''), // This line is removed
+        // Removed: rewrite: (path) => path.replace(/^\/api/, ''), // This line is removed
       },
     },
   },

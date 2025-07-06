@@ -11,13 +11,13 @@ const translations = {
   fr: {
     headerTitle: "Compte de Gestion SPG DU RAIL",
     headerSubtitle: "Suivi de Performance Mensuel",
-    section1Title: "1. Télécharger les Données",
-    uploadCsvButton: "Télécharger Fichier CSV/Excel", // Updated text
+    section1Title: "1. Détail du Compte d'Exploitation",
+    uploadCsvButton: "Télécharger Fichier CSV/Excel",
     uploadSuccess: "Fichier téléchargé avec succès !",
     uploadError: "Erreur lors du téléchargement du fichier : ",
     fetchingData: "Chargement des données...",
     errorFetchingData: "Erreur lors du chargement des données : ",
-    noDataAvailable: "Aucune donnée disponible. Veuillez télécharger un fichier CSV/Excel.", // Updated text
+    noDataAvailable: "Aucune donnée disponible. Veuillez télécharger un fichier CSV/Excel.",
     section2Title: "2. Indicateurs Clés de Performance (KPI's)",
     indicator: "Indicateur",
     currentMonth: "Mois Actuel",
@@ -62,17 +62,22 @@ const translations = {
     footerComparisons: "Les comparaisons N-1 et Budget sont basées sur des saisies manuelles pour cette version.",
     currencySymbol: "€",
     percentageSymbol: "%",
+    revenuesSection: "A. PRODUITS",
+    cogsSection: "B. COÛT DES MARCHANDISES VENDUES",
+    personnelCostsSection: "C. COÛTS DU PERSONNEL",
+    operatingExpensesSection: "D. DÉPENSES D'EXPLOITATION",
+    nonOperatingSection: "Éléments Non-Opérationnels / Spécifiques",
   },
   en: {
     headerTitle: "SPG DU RAIL Management Report",
     headerSubtitle: "Monthly Performance Tracking",
-    section1Title: "1. Upload Data",
-    uploadCsvButton: "Upload CSV/Excel File", // Updated text
+    section1Title: "1. Income Statement Details",
+    uploadCsvButton: "Upload CSV/Excel File",
     uploadSuccess: "File uploaded successfully!",
     uploadError: "Error uploading file: ",
     fetchingData: "Loading data...",
     errorFetchingData: "Error loading data: ",
-    noDataAvailable: "No data available. Please upload a CSV/Excel file.", // Updated text
+    noDataAvailable: "No data available. Please upload a CSV/Excel file.",
     section2Title: "2. Key Performance Indicators (KPI's)",
     indicator: "Indicator",
     currentMonth: "Current Month",
@@ -117,6 +122,11 @@ const translations = {
     footerComparisons: "N-1 and Budget comparisons are based on manual entries for this version.",
     currencySymbol: "€",
     percentageSymbol: "%",
+    revenuesSection: "A. REVENUES",
+    cogsSection: "B. COST OF GOODS SOLD",
+    personnelCostsSection: "C. PERSONNEL COSTS",
+    operatingExpensesSection: "D. OPERATING EXPENSES",
+    nonOperatingSection: "Non-Operating / Specific Items",
   },
 };
 
@@ -176,12 +186,23 @@ function App() {
     ebitdaBudget: 0,
   });
 
+  // Placeholder for historical data for the bar chart
+  const historicalData = useMemo(() => [
+    { name: 'Jan', ca: 4000, ebitda: 2400 },
+    { name: 'Fév', ca: 3000, ebitda: 1398 },
+    { name: 'Mar', ca: 2000, ebitda: 980 },
+    { name: 'Avr', ca: 2780, ebitda: 3908 },
+    { name: 'Mai', ca: 1890, ebitda: 4800 },
+    { name: 'Juin', ca: 2390, ebitda: 3800 },
+  ], []);
+
+
   // Function to fetch financial data from backend
   const fetchFinancialData = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      // Use direct localhost URL for fetch requests
+      // Use direct localhost URL for fetch requests for Canvas preview compatibility
       const response = await fetch('http://localhost:3001/api/financialData');
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -190,7 +211,8 @@ function App() {
       setFinancialData(data);
     } catch (err) {
       console.error('Error fetching financial data:', err);
-      setError(`${t.errorFetchingData} ${err instanceof Error ? err.message : String(err)}`);
+      // Provide a user-friendly message, explaining the Canvas preview limitation if applicable
+      setError(`${t.errorFetchingData} ${err instanceof Error ? err.message : String(err)}. Si vous êtes en mode prévisualisation Canvas, cette erreur est attendue en raison des restrictions de sécurité. L'application devrait fonctionner correctement en local.`);
     } finally {
       setIsLoading(false);
     }
@@ -201,41 +223,86 @@ function App() {
     fetchFinancialData();
   }, []); // Empty dependency array means this runs once on mount
 
-  // KPI calculations using useMemo to optimize performance
+  // Define mapping categories for frontend display (mirroring backend's logic for grouping)
+  const categoryGroups = useMemo(() => ({
+    revenues: [
+      "Ventes",
+      "Aides / Subventions",
+      "Apport en Compte Courant Associé",
+      "Virement externe"
+    ],
+    cogs: [
+      "Fournisseurs Alimentaires",
+      "Fournisseurs Matériel & Équipements"
+    ],
+    personnel: [
+      "Salaires",
+      "Cotisations Comp. Retraites",
+      "Mutuelle & Prévoyance",
+      "URSSAF - DSN",
+      "URSSAF - TNS Guillaume HEREAULT",
+      "URSSAF TNS - Pascal OURDAN"
+    ],
+    operatingExpenses: [
+      "Loyers",
+      "Assurance",
+      "Finance & Compta",
+      "Frais bancaires",
+      "Déplacements",
+      "Logiciels & Services Web",
+      "Téléphone & Internet",
+      "Restauration",
+      "Sous-traitance & Prestations",
+      "Impôts"
+    ],
+    nonOperating: [
+      "Emprunts",
+      "Remboursement en CC Associé",
+      "Remboursement Prêt",
+      "TVA à Décaisser",
+      "Virement interne"
+    ]
+  }), []);
+
+
+  // KPI calculations and aggregation of Pennylane accounts using useMemo
   const kpis = useMemo(() => {
-    // Initialize all KPI values to 0
     let caTotal = 0;
     let coutMatiereTotal = 0;
     let chargesPersonnelTotal = 0;
     let chargesExploitationTotal = 0;
+    const aggregatedAccounts: Record<string, number> = {}; // To store sums for each original_pennylane_account
 
-    // Aggregate data from fetched financialData
     financialData.forEach(item => {
-      const amount = parseFloat(item.amount) || 0; // Ensure amount is a number
+      const amount = parseFloat(item.amount) || 0;
+      const categoryMapped = item.category_mapped_to_kpi; // Use the mapped category
+      const originalAccount = item.original_pennylane_account; // Use the original Pennylane account name
 
-      // Products (Revenue)
-      if (["Net Revenue - Restaurant Sales", "Net Revenue - Other Income (Aides, Apport, Virements)"].includes(item.category_mapped_to_kpi)) {
+      // Aggregate by original Pennylane account for detailed view
+      if (aggregatedAccounts[originalAccount]) {
+        aggregatedAccounts[originalAccount] += amount;
+      } else {
+        aggregatedAccounts[originalAccount] = amount;
+      }
+
+      // Sum for KPI categories based on mapped categories
+      // These conditions explicitly include only operational revenue and expense categories
+      if (categoryMapped === "Net Revenue - Restaurant Sales" || categoryMapped === "Net Revenue - Other Income (Aides, Apport, Virements)") {
         caTotal += amount;
       }
-      // Cost of Goods
-      if (["Cost of Goods Sold - Food", "Cost of Goods Sold - Other Materials & Equipment"].includes(item.category_mapped_to_kpi)) {
+      if (categoryMapped === "Cost of Goods Sold - Food" || categoryMapped === "Cost of Goods Sold - Other Materials & Equipment") {
         coutMatiereTotal += amount;
       }
-      // Personnel Costs
-      if (["Personnel Costs"].includes(item.category_mapped_to_kpi)) {
+      if (categoryMapped === "Personnel Costs") {
         chargesPersonnelTotal += amount;
       }
-      // Operating Expenses (summing various categories)
-      if (["Rent & Lease Charges", "Insurances", "Fees & Professional Services", "Other Operating Expenses (Banks, Travel, Software, Telecom, Misc)"].includes(item.category_mapped_to_kpi)) {
+      if (categoryMapped === "Rent & Lease Charges" || categoryMapped === "Insurances" || categoryMapped === "Fees & Professional Services" || categoryMapped === "Other Operating Expenses (Banks, Travel, Software, Telecom, Misc)") {
         chargesExploitationTotal += amount;
       }
-      // Note: Energy, Assurances, Finance & Compta, Logiciels & Services Web, Téléphone & Internet
-      // are part of "Other Operating Expenses (Banks, Travel, Software, Telecom, Misc)" in the mapping
-      // or need to be explicitly added if they are distinct categories in your Pennylane data.
-      // For now, they are grouped under 'Other Operating Expenses' based on the backend mapping.
+      // Categories mapped to "Non-Operating/Specific Items (Not for core P&L)" are intentionally excluded from these sums.
     });
 
-    // Detailed Gross Margin (simplified for this example, based on total CA/COGS)
+    // Calculate Gross Margin and its percentage
     const margeBruteTotale = caTotal - coutMatiereTotal;
     const margeBruteTotalePct = caTotal > 0 ? (margeBruteTotale / caTotal) * 100 : 0;
 
@@ -248,35 +315,37 @@ function App() {
     const ratioChargesPersonnelTotalPct = caTotal > 0 ? (chargesPersonnelTotal / caTotal) * 100 : 0;
     const ratioChargesExploitationTotalPct = caTotal > 0 ? (chargesExploitationTotal / caTotal) * 100 : 0;
 
-    // For specific categories like Food/Beverages, we need to filter financialData
-    const caRestauration = financialData.reduce((sum, item) => item.category_mapped_to_kpi === "Net Revenue - Restaurant Sales" ? sum + (parseFloat(item.amount) || 0) : sum, 0);
-    const coutMatiereFood = financialData.reduce((sum, item) => item.category_mapped_to_kpi === "Cost of Goods Sold - Food" ? sum + (parseFloat(item.amount) || 0) : sum, 0);
-    const margeBruteFood = caRestauration - coutMatiereFood;
-    const margeBruteFoodPct = caRestauration > 0 ? (margeBruteFood / caRestauration) * 100 : 0;
+    // For specific categories like Food/Beverages for charts, derive from aggregatedAccounts
+    // These are based on the Pennylane account names expected from the import
+    const caRestauration = aggregatedAccounts["Ventes"] || 0;
+    const caBar = 0; // Assuming no specific "Ventes Bar" account for now, needs adjustment if present
+    const caAutresProduits = (aggregatedAccounts["Aides / Subventions"] || 0) + (aggregatedAccounts["Apport en Compte Courant Associé"] || 0) + (aggregatedAccounts["Virement externe"] || 0);
 
-    const caBar = financialData.reduce((sum, item) => item.original_pennylane_account === "Ventes Bar" ? sum + (parseFloat(item.amount) || 0) : sum, 0); // Assuming 'Ventes Bar' is a Pennylane account
-    const coutMatiereBoissons = financialData.reduce((sum, item) => item.category_mapped_to_kpi === "Cost of Goods Sold - Other Materials & Equipment" ? sum + (parseFloat(item.amount) || 0) : sum, 0); // Assuming drinks are under this category
-    const margeBruteBoissons = caBar - coutMatiereBoissons;
-    const margeBruteBoissonsPct = caBar > 0 ? (margeBruteBoissons / caBar) * 100 : 0;
+    const coutMatiereFood = aggregatedAccounts["Fournisseurs Alimentaires"] || 0;
+    const coutMatiereBoissons = aggregatedAccounts["Fournisseurs Matériel & Équipements"] || 0; // Assuming this covers beverages
 
-    // For other specific operating expenses, we need to sum their mapped categories
-    const loyersChargesLocatives = financialData.reduce((sum, item) => item.category_mapped_to_kpi === "Rent & Lease Charges" ? sum + (parseFloat(item.amount) || 0) : sum, 0);
-    const energieCharges = financialData.reduce((sum, item) => item.original_pennylane_account === "Energie" ? sum + (parseFloat(item.amount) || 0) : sum, 0); // Assuming 'Energie' is a Pennylane account
-    const assurances = financialData.reduce((sum, item) => item.category_mapped_to_kpi === "Insurances" ? sum + (parseFloat(item.amount) || 0) : sum, 0);
-    const financeCompta = financialData.reduce((sum, item) => item.category_mapped_to_kpi === "Fees & Professional Services" ? sum + (parseFloat(item.amount) || 0) : sum, 0);
-    const logicielsServicesWeb = financialData.reduce((sum, item) => item.original_pennylane_account === "Logiciels & Services Web" ? sum + (parseFloat(item.amount) || 0) : sum, 0);
-    const telephoneInternet = financialData.reduce((sum, item) => item.original_pennylane_account === "Téléphone & Internet" ? sum + (parseFloat(item.amount) || 0) : sum, 0);
-    const autresChargesExploitationSpecific = financialData.reduce((sum, item) => item.category_mapped_to_kpi === "Other Operating Expenses (Banks, Travel, Software, Telecom, Misc)" ? sum + (parseFloat(item.amount) || 0) : sum, 0);
+    // Specific operating expenses for charts, derived from aggregatedAccounts
+    const loyersChargesLocatives = aggregatedAccounts["Loyers"] || 0;
+    const energieCharges = aggregatedAccounts["Énergie"] || 0; // Assuming "Énergie" exists in Pennylane accounts
+    const assurances = aggregatedAccounts["Assurance"] || 0;
+    const financeCompta = aggregatedAccounts["Finance & Compta"] || 0;
+    const logicielsServicesWeb = aggregatedAccounts["Logiciels & Services Web"] || 0;
+    const telephoneInternet = aggregatedAccounts["Téléphone & Internet"] || 0;
+    const autresChargesExploitation = (aggregatedAccounts["Déplacements"] || 0) +
+                                      (aggregatedAccounts["Restauration"] || 0) + // Assuming "Restauration" is an expense account
+                                      (aggregatedAccounts["Sous-traitance & Prestations"] || 0) +
+                                      (aggregatedAccounts["Impôts"] || 0) +
+                                      (aggregatedAccounts["Frais bancaires"] || 0);
 
 
     return {
       caTotal,
       coutMatiereTotal,
       ratioCoutMatiereTotalPct,
-      margeBruteFood,
-      margeBruteFoodPct,
-      margeBruteBoissons,
-      margeBruteBoissonsPct,
+      margeBruteFood: caRestauration - coutMatiereFood, // Recalculate based on specific revenues/costs
+      margeBruteFoodPct: caRestauration > 0 ? ((caRestauration - coutMatiereFood) / caRestauration) * 100 : 0,
+      margeBruteBoissons: caBar - coutMatiereBoissons,
+      margeBruteBoissonsPct: caBar > 0 ? ((caBar - coutMatiereBoissons) / caBar) * 100 : 0,
       margeBruteTotale,
       margeBruteTotalePct,
       chargesPersonnelTotal,
@@ -285,22 +354,13 @@ function App() {
       ratioChargesExploitationTotalPct,
       ebitda,
       ebitdaPct,
-      // Pass these specific values for chart data
-      caRestauration, caBar, caAutresProduits: caTotal - caRestauration - caBar, // Remaining revenue
+      // Values for charts
+      caRestauration, caBar, caAutresProduits,
       coutMatiereFood, coutMatiereBoissons,
-      loyersChargesLocatives, energieCharges, assurances, financeCompta, logicielsServicesWeb, telephoneInternet, autresChargesExploitation: autresChargesExploitationSpecific,
+      loyersChargesLocatives, energieCharges, assurances, financeCompta, logicielsServicesWeb, telephoneInternet, autresChargesExploitation,
+      aggregatedAccounts, // Pass aggregated data for detailed display
     };
-  }, [financialData]); // Recalculate KPIs when financialData changes
-
-  // Dummy data for historical trend chart (for demonstration, will be replaced by real data later)
-  const [historicalData] = useState([
-    { name: 'Jan', ca: 18000, ebitda: 3500 },
-    { name: 'Fév', ca: 20000, ebitda: 4000 },
-    { name: 'Mar', ca: 22000, ebitda: 4500 },
-    { name: 'Avr', ca: 21000, ebitda: 4200 },
-    { name: 'Mai', ca: 23000, ebitda: 4800 },
-    { name: 'Juin', ca: 25000, ebitda: 5200 },
-  ]);
+  }, [financialData, categoryGroups]); // Recalculate KPIs when financialData or categoryGroups change
 
   // Handler for file upload
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -312,10 +372,10 @@ function App() {
     setIsLoading(true); // Show loading while uploading and processing
 
     const formData = new FormData();
-    formData.append('file', file); // Changed from 'csvFile' to 'file'
+    formData.append('file', file); // 'file' is the field name expected by backend
 
     try {
-      // Use direct localhost URL for upload requests
+      // Use direct localhost URL for upload requests for Canvas preview compatibility
       const response = await fetch('http://localhost:3001/api/upload-csv', {
         method: 'POST',
         body: formData,
@@ -335,6 +395,42 @@ function App() {
       setIsLoading(false);
     }
   };
+
+  // Handler for comparison input changes
+  const handleComparisonChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setComparisons(prev => ({
+      ...prev,
+      [name]: parseFloat(value) || 0
+    }));
+  };
+
+  // Helper component to render a group of detailed line items
+  const DetailedAccountGroup = ({ title, accounts, colorClass }: { title: string; accounts: string[]; colorClass: string }) => {
+    // Filter accounts to only show those present in the aggregated data with a non-zero value
+    const filteredAccounts = accounts.filter(account =>
+      kpis.aggregatedAccounts[account] !== undefined && kpis.aggregatedAccounts[account] !== 0
+    );
+
+    if (filteredAccounts.length === 0) {
+      return null; // Don't render section if no data for these accounts
+    }
+
+    return (
+      <div className="mb-6">
+        <h3 className={`text-xl font-medium ${colorClass} mb-3 border-b pb-2 border-gray-200 dark:border-gray-700`}>{title}</h3>
+        {filteredAccounts.map(account => (
+          <div key={account} className="flex justify-between items-center py-1.5 text-gray-700 dark:text-gray-300 text-base">
+            <span>{account}</span>
+            <span className="font-semibold text-gray-800 dark:text-white">
+              {kpis.aggregatedAccounts[account]?.toFixed(2)} {t.currencySymbol}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 font-inter text-gray-900 dark:text-white p-4 sm:p-8">
@@ -360,19 +456,19 @@ function App() {
       </header>
 
       <main className="container mx-auto grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
-        {/* Section Upload Data */}
+        {/* Section Upload Data & Detailed Income Statement */}
         <section className="bg-white dark:bg-gray-800 shadow-lg rounded-xl p-6 lg:col-span-1">
           <h2 className="text-2xl font-semibold text-gray-800 dark:text-white mb-6 border-b pb-3 border-gray-200 dark:border-gray-700">
             {t.section1Title}
           </h2>
-          <div className="flex flex-col items-center justify-center p-4 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+
+          <div className="flex flex-col items-center justify-center p-4 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg mb-6">
             <label htmlFor="csv-upload" className="cursor-pointer px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 ease-in-out">
               {t.uploadCsvButton}
             </label>
             <input
               id="csv-upload"
               type="file"
-              // Updated accept attribute to include Excel file types
               accept=".csv, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               onChange={handleFileUpload}
               className="hidden"
@@ -380,9 +476,50 @@ function App() {
             {uploadMessage && <p className="mt-2 text-green-500 text-sm">{uploadMessage}</p>}
             {uploadError && <p className="mt-2 text-red-500 text-sm">{uploadError}</p>}
             <p className="mt-4 text-gray-600 dark:text-gray-400 text-sm">
-                Format attendu du fichier: `Date, Montant, Types de dépenses/revenus`
+                Format attendu du fichier: `Date, Montant, Types de dépenses / revenus`
             </p>
           </div>
+
+          {isLoading ? (
+            <p className="text-center text-gray-600 dark:text-gray-400">{t.fetchingData}</p>
+          ) : error ? (
+            <p className="text-center text-red-500">{error}</p>
+          ) : financialData.length === 0 ? (
+            <p className="text-center text-gray-600 dark:text-gray-400">{t.noDataAvailable}</p>
+          ) : (
+            <div className="space-y-4">
+              {/* Detailed Income Statement Sections */}
+              <DetailedAccountGroup
+                title={t.revenuesSection}
+                accounts={categoryGroups.revenues}
+                colorClass="text-blue-600 dark:text-blue-400"
+              />
+
+              <DetailedAccountGroup
+                title={t.cogsSection}
+                accounts={categoryGroups.cogs}
+                colorClass="text-red-600 dark:text-red-400"
+              />
+
+              <DetailedAccountGroup
+                title={t.personnelCostsSection}
+                accounts={categoryGroups.personnel}
+                colorClass="text-red-600 dark:text-red-400"
+              />
+
+              <DetailedAccountGroup
+                title={t.operatingExpensesSection}
+                accounts={categoryGroups.operatingExpenses}
+                colorClass="text-red-600 dark:text-red-400"
+              />
+
+              <DetailedAccountGroup
+                title={t.nonOperatingSection}
+                accounts={categoryGroups.nonOperating}
+                colorClass="text-gray-600 dark:text-gray-400"
+              />
+            </div>
+          )}
         </section>
 
         {/* Section Key Performance Indicators (KPI's) */}
@@ -413,11 +550,11 @@ function App() {
               {/* Manual comparison inputs remain for now */}
               <div className="flex justify-between items-center py-2">
                 <label htmlFor="caTotalN1" className="text-gray-700 dark:text-gray-300 text-sm">{t.caTotalN1}</label>
-                <input type="number" id="caTotalN1" name="caTotalN1" value={comparisons.caTotalN1} onChange={e => setComparisons({...comparisons, caTotalN1: parseFloat(e.target.value) || 0})} className="p-1 border rounded-md text-right w-1/3 dark:bg-gray-800 dark:text-white text-sm" />
+                <input type="number" id="caTotalN1" name="caTotalN1" value={comparisons.caTotalN1} onChange={handleComparisonChange} className="p-1 border rounded-md text-right w-1/3 dark:bg-gray-800 dark:text-white text-sm" />
               </div>
               <div className="flex justify-between items-center py-2">
                 <label htmlFor="caTotalBudget" className="text-gray-700 dark:text-gray-300 text-sm">{t.caTotalBudget}</label>
-                <input type="number" id="caTotalBudget" name="caTotalBudget" value={comparisons.caTotalBudget} onChange={e => setComparisons({...comparisons, caTotalBudget: parseFloat(e.target.value) || 0})} className="p-1 border rounded-md text-right w-1/3 dark:bg-gray-800 dark:text-white text-sm" />
+                <input type="number" id="caTotalBudget" name="caTotalBudget" value={comparisons.caTotalBudget} onChange={handleComparisonChange} className="p-1 border rounded-md text-right w-1/3 dark:bg-gray-800 dark:text-white text-sm" />
               </div>
 
               <h3 className="text-xl font-medium text-green-600 dark:text-green-400 mt-6 mb-2">{t.profitability}</h3>
@@ -427,22 +564,22 @@ function App() {
               <KPIRow label={t.margeBruteBoissonsPct} value={kpis.margeBruteBoissonsPct} isPercentage t={t} />
               <div className="flex justify-between items-center py-2">
                 <label htmlFor="margeBruteTotalN1" className="text-gray-700 dark:text-gray-300 text-sm">{t.margeBruteN1}</label>
-                <input type="number" id="margeBruteTotalN1" name="margeBruteTotalN1" value={comparisons.margeBruteTotalN1} onChange={e => setComparisons({...comparisons, margeBruteTotalN1: parseFloat(e.target.value) || 0})} className="p-1 border rounded-md text-right w-1/3 dark:bg-gray-800 dark:text-white text-sm" />
+                <input type="number" id="margeBruteTotalN1" name="margeBruteTotalN1" value={comparisons.margeBruteTotalN1} onChange={handleComparisonChange} className="p-1 border rounded-md text-right w-1/3 dark:bg-gray-800 dark:text-white text-sm" />
               </div>
               <div className="flex justify-between items-center py-2">
                 <label htmlFor="margeBruteTotalBudget" className="text-gray-700 dark:text-gray-300 text-sm">{t.margeBruteBudget}</label>
-                <input type="number" id="margeBruteTotalBudget" name="margeBruteTotalBudget" value={comparisons.margeBruteTotalBudget} onChange={e => setComparisons({...comparisons, margeBruteTotalBudget: parseFloat(e.target.value) || 0})} className="p-1 border rounded-md text-right w-1/3 dark:bg-gray-800 dark:text-white text-sm" />
+                <input type="number" id="margeBruteTotalBudget" name="margeBruteTotalBudget" value={comparisons.margeBruteTotalBudget} onChange={handleComparisonChange} className="p-1 border rounded-md text-right w-1/3 dark:bg-gray-800 dark:text-white text-sm" />
               </div>
 
               <KPIRow label={t.ebitda} value={kpis.ebitda} isBold n1Value={comparisons.ebitdaN1} budgetValue={comparisons.ebitdaBudget} t={t} />
               <KPIRow label={t.ebitdaPct} value={kpis.ebitdaPct} isPercentage t={t} />
               <div className="flex justify-between items-center py-2">
                 <label htmlFor="ebitdaN1" className="text-gray-700 dark:text-gray-300 text-sm">{t.ebitdaN1}</label>
-                <input type="number" id="ebitdaN1" name="ebitdaN1" value={comparisons.ebitdaN1} onChange={e => setComparisons({...comparisons, ebitdaN1: parseFloat(e.target.value) || 0})} className="p-1 border rounded-md text-right w-1/3 dark:bg-gray-800 dark:text-white text-sm" />
+                <input type="number" id="ebitdaN1" name="ebitdaN1" value={comparisons.ebitdaN1} onChange={handleComparisonChange} className="p-1 border rounded-md text-right w-1/3 dark:bg-gray-800 dark:text-white text-sm" />
               </div>
               <div className="flex justify-between items-center py-2">
                 <label htmlFor="ebitdaBudget" className="text-gray-700 dark:text-gray-300 text-sm">{t.ebitdaBudget}</label>
-                <input type="number" id="ebitdaBudget" name="ebitdaBudget" value={comparisons.ebitdaBudget} onChange={e => setComparisons({...comparisons, ebitdaBudget: parseFloat(e.target.value) || 0})} className="p-1 border rounded-md text-right w-1/3 dark:bg-gray-800 dark:text-white text-sm" />
+                <input type="number" id="ebitdaBudget" name="ebitdaBudget" value={comparisons.ebitdaBudget} onChange={handleComparisonChange} className="p-1 border rounded-md text-right w-1/3 dark:bg-gray-800 dark:text-white text-sm" />
               </div>
 
               <h3 className="text-xl font-medium text-purple-600 dark:text-purple-400 mt-6 mb-2">{t.costControl}</h3>
