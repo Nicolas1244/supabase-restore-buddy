@@ -85,19 +85,22 @@ function parseExcelDate(dateValue) {
     }
   } else if (typeof dateValue === 'string') {
     // Essaye d'analyser les dates sous forme de chaîne (JJ/MM/AAAA, AAAA-MM-JJ, etc.)
+    // Priorise JJ/MM/AAAA
+    let parts = dateValue.split('/');
+    if (parts.length === 3) {
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1; // Mois est 0-indexé
+      const year = parseInt(parts[2], 10);
+      const date = new Date(year, month, day);
+      if (!isNaN(date.getTime()) && date.getDate() === day && date.getMonth() === month && date.getFullYear() === year) {
+        return date.toISOString().split('T')[0];
+      }
+    }
+    // Essaye d'autres formats si JJ/MM/AAAA échoue
     let date = new Date(dateValue);
     if (!isNaN(date.getTime())) {
       return date.toISOString().split('T')[0];
     }
-    let parts = dateValue.split('/');
-    if (parts.length === 3) {
-      // Supposons JJ/MM/AAAA
-      date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-      if (!isNaN(date.getTime())) {
-        return date.toISOString().split('T')[0];
-      }
-    }
-    // Ajoutez d'autres formats de chaîne si nécessaire
   }
   return null; // Retourne null si la date ne peut pas être analysée
 }
@@ -106,25 +109,37 @@ function parseExcelDate(dateValue) {
 // Fonction pour insérer les données financières dans Supabase
 async function insertFinancialData(data) {
   try {
-    // Valide et transforme les données avant l'insertion
-    const validatedData = data.map(item => {
+    // Log les données brutes reçues avant la validation
+    console.log('Données reçues pour insertion (brut) :', JSON.stringify(data, null, 2));
+
+    const validatedData = data.map((item, index) => {
+      // Log les clés réelles de l'objet item pour débogage
+      console.log(`Clés de l'élément ${index + 1}:`, Object.keys(item));
+
       // Nettoyage et conversion du montant
-      const amountString = String(item.Montant).replace(',', '.').replace('€', '').trim();
+      // Supprime les espaces, le symbole € et toutes les virgules (séparateurs de milliers)
+      const amountString = String(item.Montant || '').replace(/\s/g, '').replace('€', '').replace(/,/g, '').trim();
       const amount = parseFloat(amountString);
 
       // Conversion de la date avec la nouvelle fonction parseExcelDate
       const dateIso = parseExcelDate(item.Date);
 
+      // Récupère le type de dépense/revenu, en utilisant une chaîne vide si undefined
+      // Utilise le nom de colonne exact avec les espaces autour du slash
+      const originalPennylaneAccount = item['Types de dépenses / revenus'] || '';
+
       // Validation des champs critiques
-      if (!dateIso || !item.Montant || !item['Types de dépenses/revenus'] || isNaN(amount)) {
-        console.warn(`Ligne ignorée en raison de données requises manquantes, mal nommées ou invalides: Date='${item.Date}', Montant='${item.Montant}', Types de dépenses/revenus='${item['Types de dépenses/revenus']}', Montant converti=${amount}, Date convertie=${dateIso}. Ligne complète:`, item);
+      if (!dateIso || !originalPennylaneAccount || isNaN(amount)) {
+        console.warn(`Ligne ${index + 1} ignorée en raison de données requises manquantes ou invalides: ` +
+                     `Date='${item.Date}', Montant='${item.Montant}', Types de dépenses / revenus='${item['Types de dépenses / revenus']}', ` +
+                     `Montant converti=${amount}, Date convertie=${dateIso}. Ligne complète:`, item);
         return null; // Retourne null pour les lignes invalides
       }
 
       return {
         date: dateIso,
-        original_pennylane_account: item['Types de dépenses/revenus'],
-        category_mapped_to_kpi: getKPICategory(item['Types de dépenses/revenus']),
+        original_pennylane_account: originalPennylaneAccount,
+        category_mapped_to_kpi: getKPICategory(originalPennylaneAccount),
         amount: amount,
         restaurant_id: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
       };
@@ -134,12 +149,15 @@ async function insertFinancialData(data) {
         throw new Error('Aucune donnée valide trouvée dans le fichier pour l\'insertion.');
     }
 
+    // Log les données validées avant l'insertion dans Supabase
+    console.log('Données validées pour insertion (après parsing) :', JSON.stringify(validatedData, null, 2));
+
     const { data: insertedData, error } = await supabase
       .from('financial_data')
       .insert(validatedData);
 
     if (error) {
-      console.error('Erreur lors de l\'insertion des données financières :', error);
+      console.error('Erreur lors de l\'insertion des données financières dans Supabase :', error);
       throw error;
     }
     console.log('Données financières insérées avec succès :', insertedData);
@@ -179,7 +197,10 @@ app.post('/api/upload-csv', upload.single('file'), async (req, res) => { // 'fil
             const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
             const sheetName = workbook.SheetNames[0]; // Prend la première feuille par défaut
             const worksheet = workbook.Sheets[sheetName];
-            parsedData = XLSX.utils.sheet_to_json(worksheet, { raw: false }); // raw: false pour tenter de formater les dates/nombres
+            // raw: false pour tenter de formater les dates/nombres, header: 2 pour lire la DEUXIÈME ligne comme en-têtes
+            parsedData = XLSX.utils.sheet_to_json(worksheet, { raw: false, header: 2 });
+            // Pas besoin de mappage manuel si header: 2 est utilisé, car il renvoie directement des objets avec les bonnes clés.
+
         } else {
             return res.status(400).json({ error: 'Format de fichier non pris en charge. Veuillez télécharger un fichier CSV, XLS ou XLSX.' });
         }
