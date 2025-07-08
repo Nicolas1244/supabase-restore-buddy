@@ -1,384 +1,225 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-} from 'recharts';
+  LayoutDashboard, Utensils, Users, CalendarDays, DollarSign, FileText, Settings, LogOut, PlusCircle, Trash2, Edit,
+} from 'lucide-react'; // Icônes pour la navigation
 
-// Couleurs pour les graphiques (inspirées de Monday.com/Fygr.io)
-const COLORS = ['#4F88F7', '#FFC107', '#28A745', '#DC3545', '#6F42C1', '#FD7E14'];
+// Importez le composant CompteDeGestion.
+// IMPORTANT : Assurez-vous que le fichier CompteDeGestion.tsx se trouve dans le même répertoire (src/)
+// que ce fichier App.tsx. Si vous l'avez placé dans un sous-dossier (ex: 'src/components/'),
+// vous devrez ajuster ce chemin en conséquence (ex: './components/CompteDeGestion.tsx').
+import CompteDeGestion from './CompteDeGestion.tsx'; // Chemin corrigé pour le même répertoire
 
-// Translation object for all UI texts
-const translations = {
+// Définition des types pour les restaurants
+interface Restaurant {
+  id: string;
+  name: string;
+  address?: string;
+  city?: string;
+  zip_code?: string;
+  country?: string;
+  phone?: string;
+  email?: string;
+  siret?: string; // Ajout du champ SIRET
+}
+
+// Translations for the main App shell
+const appTranslations = {
   fr: {
-    headerTitle: "Compte de Gestion SPG DU RAIL",
-    headerSubtitle: "Suivi de Performance Mensuel",
-    section1Title: "1. Détail du Compte d'Exploitation",
-    uploadCsvButton: "Télécharger Fichier CSV/Excel",
-    uploadSuccess: "Fichier téléchargé avec succès !",
-    uploadError: "Erreur lors du téléchargement du fichier : ",
-    fetchingData: "Chargement des données...",
-    errorFetchingData: "Erreur lors du chargement des données : ",
-    noDataAvailable: "Aucune donnée disponible. Veuillez télécharger un fichier CSV/Excel.",
-    section2Title: "2. Indicateurs Clés de Performance (KPI's)",
-    indicator: "Indicateur",
-    currentMonth: "Mois Actuel",
-    vsN1: "Vs N-1",
-    vsBudget: "Vs Budget",
-    products: "Produits",
-    caTotal: "CA Total HT",
-    caTotalN1: "CA Total N-1 (€)",
-    caTotalBudget: "CA Total Budget (€)",
-    profitability: "Rentabilité",
-    margeBruteTotale: "Marge Brute Totale",
-    margeBruteTotalePct: "Marge Brute Totale (%)",
-    margeBruteFoodPct: "Marge Brute Food (%)",
-    margeBruteBoissonsPct: "Marge Brute Boissons (%)",
-    margeBruteN1: "Marge Brute N-1 (€)",
-    margeBruteBudget: "Marge Brute Budget (€)",
-    ebitda: "EBITDA",
-    ebitdaPct: "EBITDA (%)",
-    ebitdaN1: "EBITDA N-1 (€)",
-    ebitdaBudget: "EBITDA Budget (€)",
-    costControl: "Maîtrise des Coûts",
-    ratioCoutMatiereTotalPct: "Ratio Coût Matière Total (%)",
-    ratioChargesPersonnelTotalPct: "Ratio Charges Personnel Total (%)",
-    ratioChargesExploitationTotalPct: "Ratio Charges Exploitation Total (%)",
-    section3Title: "3. Visualisation des Performances",
-    revenueDistribution: "Répartition du Chiffre d'Affaires HT",
-    restaurant: "Restauration",
-    bar: "Bar",
-    other: "Autres",
-    costOfGoodsDistribution: "Répartition Coût Matière",
-    food: "Food",
-    beverages: "Boissons",
-    operatingExpensesDistribution: "Répartition Charges d'Exploitation",
+    appName: "RestoPilot",
+    dashboard: "Tableau de Bord",
+    restaurants: "Restaurants",
     personnel: "Personnel",
-    rentCharges: "Loyers & Charges",
-    energy: "Énergie",
-    otherOpExp: "Autres Charges Op.",
-    caEbitdaEvolution: "Évolution CA & EBITDA (6 Mois)",
-    revenue: "Chiffre d'Affaires",
-    footerCalculations: "Les calculs sont mis à jour en temps réel.",
-    footerSimplified: "Ce compte de gestion est une version simplifiée à des fins de pilotage opérationnel.",
-    footerComparisons: "Les comparaisons N-1 et Budget sont basées sur des saisies manuelles pour cette version.",
-    currencySymbol: "€",
-    percentageSymbol: "%",
-    revenuesSection: "A. PRODUITS",
-    cogsSection: "B. COÛT DES MARCHANDISES VENDUES",
-    personnelCostsSection: "C. COÛTS DU PERSONNEL",
-    operatingExpensesSection: "D. DÉPENSES D'EXPLOITATION",
-    nonOperatingSection: "Éléments Non-Opérationnels / Spécifiques",
+    planning: "Planning",
+    paie: "Paie",
+    documents: "Documents",
+    settings: "Paramètres",
+    logout: "Déconnexion",
+    selectRestaurant: "Sélectionner un établissement",
+    manageRestaurants: "Gérer les établissements",
+    addRestaurant: "Ajouter un établissement",
+    editRestaurant: "Modifier l'établissement",
+    deleteRestaurant: "Supprimer l'établissement",
+    restaurantName: "Nom de l'établissement",
+    address: "Adresse",
+    city: "Ville",
+    zipCode: "Code Postal",
+    country: "Pays",
+    phone: "Téléphone",
+    email: "Email",
+    siret: "Numéro SIRET", // Nouvelle traduction
+    lookupSiret: "Rechercher SIRET", // Nouvelle traduction
+    siretLookupSuccess: "Informations SIRET récupérées !",
+    siretLookupError: "Erreur lors de la recherche SIRET : ",
+    save: "Sauvegarder",
+    cancel: "Annuler",
+    confirmDelete: "Êtes-vous sûr de vouloir supprimer cet établissement ? Cette action est irréversible.",
+    addRestaurantTitle: "Ajouter un nouvel établissement",
+    editRestaurantTitle: "Modifier l'établissement",
+    noRestaurantSelected: "Veuillez sélectionner un restaurant dans le menu déroulant ou en créer un.",
+    loadingRestaurants: "Chargement des établissements...",
+    errorLoadingRestaurants: "Erreur lors du chargement des établissements : ",
+    errorAddingRestaurant: "Erreur lors de l'ajout de l'établissement : ",
+    errorUpdatingRestaurant: "Erreur lors de la mise à jour de l'établissement : ",
+    errorDeletingRestaurant: "Erreur lors de la suppression de l'établissement : ",
+    restaurantAdded: "Établissement ajouté avec succès !",
+    restaurantUpdated: "Établissement mis à jour avec succès !",
+    restaurantDeleted: "Établissement supprimé avec succès !",
   },
   en: {
-    headerTitle: "SPG DU RAIL Management Report",
-    headerSubtitle: "Monthly Performance Tracking",
-    section1Title: "1. Income Statement Details",
-    uploadCsvButton: "Upload CSV/Excel File",
-    uploadSuccess: "File uploaded successfully!",
-    uploadError: "Error uploading file: ",
-    fetchingData: "Loading data...",
-    errorFetchingData: "Error loading data: ",
-    noDataAvailable: "No data available. Please upload a CSV/Excel file.",
-    section2Title: "2. Key Performance Indicators (KPI's)",
-    indicator: "Indicator",
-    currentMonth: "Current Month",
-    vsN1: "Vs N-1",
-    vsBudget: "Vs Budget",
-    products: "Products",
-    caTotal: "Total Revenue HT",
-    caTotalN1: "Total Revenue N-1 (€)",
-    caTotalBudget: "Total Revenue Budget (€)",
-    profitability: "Profitability",
-    margeBruteTotale: "Total Gross Margin",
-    margeBruteTotalePct: "Total Gross Margin (%)",
-    margeBruteFoodPct: "Gross Margin Food (%)",
-    margeBruteBoissonsPct: "Gross Margin Beverages (%)",
-    margeBruteN1: "Gross Margin N-1 (€)",
-    margeBruteBudget: "Gross Margin Budget (€)",
-    ebitda: "EBITDA",
-    ebitdaPct: "EBITDA (%)",
-    ebitdaN1: "EBITDA N-1 (€)",
-    ebitdaBudget: "EBITDA Budget (€)",
-    costControl: "Cost Control",
-    ratioCoutMatiereTotalPct: "Total Cost of Goods Ratio (%)",
-    ratioChargesPersonnelTotalPct: "Total Personnel Cost Ratio (%)",
-    ratioChargesExploitationTotalPct: "Total Operating Expenses Ratio (%)",
-    section3Title: "3. Performance Visualization",
-    revenueDistribution: "Revenue HT Distribution",
-    restaurant: "Restaurant",
-    bar: "Bar",
-    other: "Other",
-    costOfGoodsDistribution: "Cost of Goods Distribution",
-    food: "Food",
-    beverages: "Beverages",
-    operatingExpensesDistribution: "Operating Expenses Distribution",
+    appName: "RestoPilot",
+    dashboard: "Dashboard",
+    restaurants: "Restaurants",
     personnel: "Personnel",
-    rentCharges: "Rent & Charges",
-    energy: "Energy",
-    otherOpExp: "Other Op. Exp.",
-    caEbitdaEvolution: "CA & EBITDA Evolution (6 Months)",
-    revenue: "Revenue",
-    footerCalculations: "Calculations are updated in real-time.",
-    footerSimplified: "This management report is a simplified version for operational steering purposes.",
-    footerComparisons: "N-1 and Budget comparisons are based on manual entries for this version.",
-    currencySymbol: "€",
-    percentageSymbol: "%",
-    revenuesSection: "A. REVENUES",
-    cogsSection: "B. COST OF GOODS SOLD",
-    personnelCostsSection: "C. PERSONNEL COSTS",
-    operatingExpensesSection: "D. OPERATING EXPENSES",
-    nonOperatingSection: "Non-Operating / Specific Items",
+    planning: "Scheduling",
+    paie: "Payroll",
+    documents: "Documents",
+    settings: "Settings",
+    logout: "Logout",
+    selectRestaurant: "Select an establishment",
+    manageRestaurants: "Manage establishments",
+    addRestaurant: "Add establishment",
+    editRestaurant: "Edit establishment",
+    deleteRestaurant: "Delete establishment",
+    restaurantName: "Establishment Name",
+    address: "Address",
+    city: "City",
+    zipCode: "Zip Code",
+    country: "Country",
+    phone: "Phone",
+    email: "Email",
+    siret: "SIRET Number", // New translation
+    lookupSiret: "Lookup SIRET", // New translation
+    siretLookupSuccess: "SIRET information retrieved!",
+    siretLookupError: "Error during SIRET lookup: ",
+    save: "Save",
+    cancel: "Cancel",
+    confirmDelete: "Are you sure you want to delete this establishment? This action is irreversible.",
+    addRestaurantTitle: "Add New Establishment",
+    editRestaurantTitle: "Edit Establishment",
+    noRestaurantSelected: "Please select a restaurant from the dropdown or create a new one.",
+    loadingRestaurants: "Loading establishments...",
+    errorLoadingRestaurants: "Error loading establishments: ",
+    errorAddingRestaurant: "Error adding establishment: ",
+    errorUpdatingRestaurant: "Error updating establishment: ",
+    errorDeletingRestaurant: "Error deleting establishment: ",
+    restaurantAdded: "Establishment added successfully!",
+    restaurantUpdated: "Establishment updated successfully!",
+    restaurantDeleted: "Establishment deleted successfully!",
   },
-};
-
-// Helper component for a single KPI display row with comparisons
-const KPIRow = ({ label, value, n1Value, budgetValue, isPercentage = false, isBold = false, t }:
-  { label: string; value: number | string; n1Value?: number; budgetValue?: number; isPercentage?: boolean; isBold?: boolean; t: any }) => {
-  const displayValue = typeof value === 'number' ? value.toFixed(2) : value;
-  const n1Diff = typeof value === 'number' && n1Value !== undefined ? (value - n1Value).toFixed(2) : null;
-  const budgetDiff = typeof value === 'number' && budgetValue !== undefined ? (value - budgetValue).toFixed(2) : null;
-
-  const n1DiffClass = n1Diff !== null ? (parseFloat(n1Diff) >= 0 ? 'text-green-500' : 'text-red-500') : '';
-  const budgetDiffClass = budgetDiff !== null ? (parseFloat(budgetDiff) >= 0 ? 'text-green-500' : 'text-red-500') : '';
-
-  const valueClass = isBold ? 'font-extrabold text-lg' : 'font-bold';
-
-  return (
-    <div className={`grid grid-cols-4 gap-2 py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0 items-center ${isBold ? 'bg-gray-50 dark:bg-gray-700 rounded-md px-2' : ''}`}>
-      <span className={`col-span-1 text-gray-700 dark:text-gray-300 ${isBold ? 'font-semibold' : ''}`}>{label}</span>
-      <span className={`col-span-1 text-right ${valueClass} text-gray-800 dark:text-white`}>
-        {displayValue}{isPercentage ? t.percentageSymbol : t.currencySymbol}
-      </span>
-      <div className="col-span-1 text-right text-sm">
-        {n1Value !== undefined && (
-          <span className={`${n1DiffClass}`}>
-            {n1Diff !== null && (parseFloat(n1Diff) > 0 ? `+${n1Diff}` : n1Diff)}{isPercentage ? t.percentageSymbol : t.currencySymbol}
-          </span>
-        )}
-      </div>
-      <div className="col-span-1 text-right text-sm">
-        {budgetValue !== undefined && (
-          <span className={`${budgetDiffClass}`}>
-            {budgetValue !== null && (parseFloat(budgetValue) > 0 ? `+${budgetValue}` : budgetValue)}{isPercentage ? t.percentageSymbol : t.currencySymbol}
-          </span>
-        )}
-      </div>
-    </div>
-  );
 };
 
 function App() {
   const [language, setLanguage] = useState('fr');
-  const t = translations[language];
+  const t = appTranslations[language];
 
-  const [financialData, setFinancialData] = useState<any[]>([]); // State to hold fetched financial data
+  const [activeModule, setActiveModule] = useState('dashboard'); // 'dashboard', 'restaurants', 'compte-gestion'
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentRestaurant, setCurrentRestaurant] = useState<Restaurant | null>(null); // For edit/add modal
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ message: string; type: 'info' | 'success' | 'error' } | null>(null);
+  const [siretInput, setSiretInput] = useState<string>(''); // New state for SIRET input
 
-  // State for comparison values (N-1 and Budget) - these will still be manual for now
-  const [comparisons, setComparisons] = useState({
-    caTotalN1: 0,
-    caTotalBudget: 0,
-    margeBruteTotalN1: 0,
-    margeBruteTotalBudget: 0,
-    ebitdaN1: 0,
-    ebitdaBudget: 0,
-  });
-
-  // Placeholder for historical data for the bar chart
-  const historicalData = useMemo(() => [
-    { name: 'Jan', ca: 4000, ebitda: 2400 },
-    { name: 'Fév', ca: 3000, ebitda: 1398 },
-    { name: 'Mar', ca: 2000, ebitda: 980 },
-    { name: 'Avr', ca: 2780, ebitda: 3908 },
-    { name: 'Mai', ca: 1890, ebitda: 4800 },
-    { name: 'Juin', ca: 2390, ebitda: 3800 },
-  ], []);
-
-
-  // Function to fetch financial data from backend
-  const fetchFinancialData = async () => {
+  // Fetch restaurants
+  const fetchRestaurants = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      // Use direct localhost URL for fetch requests for Canvas preview compatibility
-      const response = await fetch('http://localhost:3001/api/financialData');
+      const response = await fetch('http://localhost:3001/api/restaurants');
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const data = await response.json();
-      setFinancialData(data);
+      setRestaurants(data);
+      // If no restaurant is selected, select the first one if available
+      if (!selectedRestaurantId && data.length > 0) {
+        setSelectedRestaurantId(data[0].id);
+      }
     } catch (err) {
-      console.error('Error fetching financial data:', err);
-      // Provide a user-friendly message, explaining the Canvas preview limitation if applicable
-      setError(`${t.errorFetchingData} ${err instanceof Error ? err.message : String(err)}. Si vous êtes en mode prévisualisation Canvas, cette erreur est attendue en raison des restrictions de sécurité. L'application devrait fonctionner correctement en local.`);
+      console.error('Error fetching restaurants:', err);
+      setError(`${t.errorLoadingRestaurants} ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIsLoading(false);
     }
+  }, [selectedRestaurantId, t.errorLoadingRestaurants]);
+
+  useEffect(() => {
+    fetchRestaurants();
+  }, [fetchRestaurants]);
+
+  // Handle restaurant selection from dropdown
+  const handleRestaurantSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedRestaurantId(e.target.value);
   };
 
-  // Fetch data on component mount
-  useEffect(() => {
-    fetchFinancialData();
-  }, []); // Empty dependency array means this runs once on mount
-
-  // Define mapping categories for frontend display (mirroring backend's logic for grouping)
-  const categoryGroups = useMemo(() => ({
-    revenues: [
-      "Ventes",
-      "Aides / Subventions",
-      "Apport en Compte Courant Associé",
-      "Virement externe"
-    ],
-    cogs: [
-      "Fournisseurs Alimentaires",
-      "Fournisseurs Matériel & Équipements"
-    ],
-    personnel: [
-      "Salaires",
-      "Cotisations Comp. Retraites",
-      "Mutuelle & Prévoyance",
-      "URSSAF - DSN",
-      "URSSAF - TNS Guillaume HEREAULT",
-      "URSSAF TNS - Pascal OURDAN"
-    ],
-    operatingExpenses: [
-      "Loyers",
-      "Assurance",
-      "Finance & Compta",
-      "Frais bancaires",
-      "Déplacements",
-      "Logiciels & Services Web",
-      "Téléphone & Internet",
-      "Restauration",
-      "Sous-traitance & Prestations",
-      "Impôts"
-    ],
-    nonOperating: [
-      "Emprunts",
-      "Remboursement en CC Associé",
-      "Remboursement Prêt",
-      "TVA à Décaisser",
-      "Virement interne"
-    ]
-  }), []);
-
-
-  // KPI calculations and aggregation of Pennylane accounts using useMemo
-  const kpis = useMemo(() => {
-    let caTotal = 0;
-    let coutMatiereTotal = 0;
-    let chargesPersonnelTotal = 0;
-    let chargesExploitationTotal = 0;
-    const aggregatedAccounts: Record<string, number> = {}; // To store sums for each original_pennylane_account
-
-    financialData.forEach(item => {
-      const amount = parseFloat(item.amount) || 0;
-      const categoryMapped = item.category_mapped_to_kpi; // Use the mapped category
-      const originalAccount = item.original_pennylane_account; // Use the original Pennylane account name
-
-      // Aggregate by original Pennylane account for detailed view
-      if (aggregatedAccounts[originalAccount]) {
-        aggregatedAccounts[originalAccount] += amount;
-      } else {
-        aggregatedAccounts[originalAccount] = amount;
-      }
-
-      // Sum for KPI categories based on mapped categories
-      // These conditions explicitly include only operational revenue and expense categories
-      if (categoryMapped === "Net Revenue - Restaurant Sales" || categoryMapped === "Net Revenue - Other Income (Aides, Apport, Virements)") {
-        caTotal += amount;
-      }
-      if (categoryMapped === "Cost of Goods Sold - Food" || categoryMapped === "Cost of Goods Sold - Other Materials & Equipment") {
-        coutMatiereTotal += amount;
-      }
-      if (categoryMapped === "Personnel Costs") {
-        chargesPersonnelTotal += amount;
-      }
-      if (categoryMapped === "Rent & Lease Charges" || categoryMapped === "Insurances" || categoryMapped === "Fees & Professional Services" || categoryMapped === "Other Operating Expenses (Banks, Travel, Software, Telecom, Misc)") {
-        chargesExploitationTotal += amount;
-      }
-      // Categories mapped to "Non-Operating/Specific Items (Not for core P&L)" are intentionally excluded from these sums.
-    });
-
-    // Calculate Gross Margin and its percentage
-    const margeBruteTotale = caTotal - coutMatiereTotal;
-    const margeBruteTotalePct = caTotal > 0 ? (margeBruteTotale / caTotal) * 100 : 0;
-
-    // EBITDA
-    const ebitda = margeBruteTotale - chargesPersonnelTotal - chargesExploitationTotal;
-    const ebitdaPct = caTotal > 0 ? (ebitda / caTotal) * 100 : 0;
-
-    // Ratios
-    const ratioCoutMatiereTotalPct = caTotal > 0 ? (coutMatiereTotal / caTotal) * 100 : 0;
-    const ratioChargesPersonnelTotalPct = caTotal > 0 ? (chargesPersonnelTotal / caTotal) * 100 : 0;
-    const ratioChargesExploitationTotalPct = caTotal > 0 ? (chargesExploitationTotal / caTotal) * 100 : 0;
-
-    // For specific categories like Food/Beverages for charts, derive from aggregatedAccounts
-    // These are based on the Pennylane account names expected from the import
-    const caRestauration = aggregatedAccounts["Ventes"] || 0;
-    const caBar = 0; // Assuming no specific "Ventes Bar" account for now, needs adjustment if present
-    const caAutresProduits = (aggregatedAccounts["Aides / Subventions"] || 0) + (aggregatedAccounts["Apport en Compte Courant Associé"] || 0) + (aggregatedAccounts["Virement externe"] || 0);
-
-    const coutMatiereFood = aggregatedAccounts["Fournisseurs Alimentaires"] || 0;
-    const coutMatiereBoissons = aggregatedAccounts["Fournisseurs Matériel & Équipements"] || 0; // Assuming this covers beverages
-
-    // Specific operating expenses for charts, derived from aggregatedAccounts
-    const loyersChargesLocatives = aggregatedAccounts["Loyers"] || 0;
-    const energieCharges = aggregatedAccounts["Énergie"] || 0; // Assuming "Énergie" exists in Pennylane accounts
-    const assurances = aggregatedAccounts["Assurance"] || 0;
-    const financeCompta = aggregatedAccounts["Finance & Compta"] || 0;
-    const logicielsServicesWeb = aggregatedAccounts["Logiciels & Services Web"] || 0;
-    const telephoneInternet = aggregatedAccounts["Téléphone & Internet"] || 0;
-    const autresChargesExploitation = (aggregatedAccounts["Déplacements"] || 0) +
-                                      (aggregatedAccounts["Restauration"] || 0) + // Assuming "Restauration" is an expense account
-                                      (aggregatedAccounts["Sous-traitance & Prestations"] || 0) +
-                                      (aggregatedAccounts["Impôts"] || 0) +
-                                      (aggregatedAccounts["Frais bancaires"] || 0);
-
-
-    return {
-      caTotal,
-      coutMatiereTotal,
-      ratioCoutMatiereTotalPct,
-      margeBruteFood: caRestauration - coutMatiereFood, // Recalculate based on specific revenues/costs
-      margeBruteFoodPct: caRestauration > 0 ? ((caRestauration - coutMatiereFood) / caRestauration) * 100 : 0,
-      margeBruteBoissons: caBar - coutMatiereBoissons,
-      margeBruteBoissonsPct: caBar > 0 ? ((caBar - coutMatiereBoissons) / caBar) * 100 : 0,
-      margeBruteTotale,
-      margeBruteTotalePct,
-      chargesPersonnelTotal,
-      ratioChargesPersonnelTotalPct,
-      chargesExploitationTotal,
-      ratioChargesExploitationTotalPct,
-      ebitda,
-      ebitdaPct,
-      // Values for charts
-      caRestauration, caBar, caAutresProduits,
-      coutMatiereFood, coutMatiereBoissons,
-      loyersChargesLocatives, energieCharges, assurances, financeCompta, logicielsServicesWeb, telephoneInternet, autresChargesExploitation,
-      aggregatedAccounts, // Pass aggregated data for detailed display
-    };
-  }, [financialData, categoryGroups]); // Recalculate KPIs when financialData or categoryGroups change
-
-  // Handler for file upload
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploadMessage(null);
-    setUploadError(null);
-    setIsLoading(true); // Show loading while uploading and processing
-
-    const formData = new FormData();
-    formData.append('file', file); // 'file' is the field name expected by backend
+  // Handle Add/Edit Restaurant
+  const handleAddEditRestaurant = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentRestaurant || !currentRestaurant.name) {
+      setNotification({ message: "Le nom de l'établissement est requis.", type: "error" });
+      return;
+    }
 
     try {
-      // Use direct localhost URL for upload requests for Canvas preview compatibility
-      const response = await fetch('http://localhost:3001/api/upload-csv', {
+      let response;
+      if (currentRestaurant.id) { // Edit existing
+        response = await fetch(`http://localhost:3001/api/restaurants/${currentRestaurant.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(currentRestaurant),
+        });
+        if (!response.ok) throw new Error(t.errorUpdatingRestaurant);
+        setNotification({ message: t.restaurantUpdated, type: 'success' });
+      } else { // Add new
+        response = await fetch('http://localhost:3001/api/restaurants', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(currentRestaurant),
+        });
+        if (!response.ok) throw new Error(t.errorAddingRestaurant);
+        setNotification({ message: t.restaurantAdded, type: 'success' });
+      }
+      setIsModalOpen(false);
+      await fetchRestaurants(); // Re-fetch list to update UI
+    } catch (err) {
+      setNotification({ message: `${err instanceof Error ? err.message : String(err)}`, type: 'error' });
+    }
+  };
+
+  // Handle Delete Restaurant
+  const handleDeleteRestaurant = async (id: string) => {
+    if (!window.confirm(t.confirmDelete)) return; // Use native confirm for simplicity
+
+    try {
+      const response = await fetch(`http://localhost:3001/api/restaurants/${id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) throw new Error(t.errorDeletingRestaurant);
+      setNotification({ message: t.restaurantDeleted, type: 'success' });
+      // If the deleted restaurant was selected, clear selection
+      if (selectedRestaurantId === id) {
+        setSelectedRestaurantId(null);
+      }
+      await fetchRestaurants(); // Re-fetch list
+    } catch (err) {
+      setNotification({ message: `${err instanceof Error ? err.message : String(err)}`, type: 'error' });
+    }
+  };
+
+  // Handle SIRET lookup
+  const handleSiretLookup = async () => {
+    if (!siretInput) {
+      setNotification({ message: "Veuillez entrer un numéro SIRET.", type: "error" });
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:3001/api/siret-lookup', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ siret: siretInput }),
       });
 
       if (!response.ok) {
@@ -386,339 +227,460 @@ function App() {
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
-      setUploadMessage(t.uploadSuccess);
-      await fetchFinancialData(); // Re-fetch data after successful upload
+      const companyData = await response.json();
+      setNotification({ message: t.siretLookupSuccess, type: 'success' });
+
+      // Update currentRestaurant with fetched data
+      setCurrentRestaurant(prev => ({
+        ...prev!, // Ensure prev is not null
+        name: companyData.name || prev?.name || '',
+        address: companyData.address || prev?.address || '',
+        city: companyData.city || prev?.city || '',
+        zip_code: companyData.zip_code || prev?.zip_code || '',
+        country: companyData.country || prev?.country || '',
+        phone: companyData.phone || prev?.phone || '',
+        email: companyData.email || prev?.email || '',
+        siret: siretInput, // Keep the entered SIRET
+      }));
+
     } catch (err) {
-      console.error('Error uploading file:', err);
-      setUploadError(`${t.uploadError} ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setIsLoading(false);
+      console.error('Error during SIRET lookup:', err);
+      setNotification({ message: `${t.siretLookupError} ${err instanceof Error ? err.message : String(err)}`, type: 'error' });
     }
   };
 
-  // Handler for comparison input changes
-  const handleComparisonChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setComparisons(prev => ({
-      ...prev,
-      [name]: parseFloat(value) || 0
-    }));
-  };
 
-  // Helper component to render a group of detailed line items
-  const DetailedAccountGroup = ({ title, accounts, colorClass }: { title: string; accounts: string[]; colorClass: string }) => {
-    // Filter accounts to only show those present in the aggregated data with a non-zero value
-    const filteredAccounts = accounts.filter(account =>
-      kpis.aggregatedAccounts[account] !== undefined && kpis.aggregatedAccounts[account] !== 0
-    );
-
-    if (filteredAccounts.length === 0) {
-      return null; // Don't render section if no data for these accounts
-    }
-
-    return (
-      <div className="mb-6">
-        <h3 className={`text-xl font-medium ${colorClass} mb-3 border-b pb-2 border-gray-200 dark:border-gray-700`}>{title}</h3>
-        {filteredAccounts.map(account => (
-          <div key={account} className="flex justify-between items-center py-1.5 text-gray-700 dark:text-gray-300 text-base">
-            <span>{account}</span>
-            <span className="font-semibold text-gray-800 dark:text-white">
-              {kpis.aggregatedAccounts[account]?.toFixed(2)} {t.currencySymbol}
-            </span>
+  // Modal for Add/Edit Restaurant
+  const RestaurantModal = () => (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50">
+      <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md">
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">
+          {currentRestaurant?.id ? t.editRestaurantTitle : t.addRestaurantTitle}
+        </h2>
+        <form onSubmit={handleAddEditRestaurant} className="space-y-4">
+          {/* SIRET Input Field */}
+          <div>
+            <label htmlFor="siret" className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2">
+              {t.siret}
+            </label>
+            <div className="flex items-center space-x-2">
+              <input
+                type="text"
+                id="siret"
+                name="siret"
+                value={siretInput} // Use siretInput state for this field
+                onChange={(e) => {
+                  setSiretInput(e.target.value);
+                  setCurrentRestaurant({ ...currentRestaurant!, siret: e.target.value }); // Also update currentRestaurant's siret
+                }}
+                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 dark:text-gray-300 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-700 dark:border-gray-600"
+                placeholder="Ex: 12345678900000"
+              />
+              <button
+                type="button"
+                onClick={handleSiretLookup}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 ease-in-out whitespace-nowrap"
+              >
+                {t.lookupSiret}
+              </button>
+            </div>
           </div>
-        ))}
-      </div>
-    );
-  };
+          {/* End SIRET Input Field */}
 
-
-  return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 font-inter text-gray-900 dark:text-white p-4 sm:p-8">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-lg rounded-xl p-6 mb-8 text-center flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-white">{t.headerTitle}</h1>
-        <p className="text-gray-600 dark:text-gray-400">{t.headerSubtitle}</p>
-        {/* Language Toggle */}
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => setLanguage('fr')}
-            className={`px-3 py-1 rounded-md text-sm font-semibold ${language === 'fr' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white'}`}
-          >
-            FR
-          </button>
-          <button
-            onClick={() => setLanguage('en')}
-            className={`px-3 py-1 rounded-md text-sm font-semibold ${language === 'en' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white'}`}
-          >
-            EN
-          </button>
-        </div>
-      </header>
-
-      <main className="container mx-auto grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
-        {/* Section Upload Data & Detailed Income Statement */}
-        <section className="bg-white dark:bg-gray-800 shadow-lg rounded-xl p-6 lg:col-span-1">
-          <h2 className="text-2xl font-semibold text-gray-800 dark:text-white mb-6 border-b pb-3 border-gray-200 dark:border-gray-700">
-            {t.section1Title}
-          </h2>
-
-          <div className="flex flex-col items-center justify-center p-4 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg mb-6">
-            <label htmlFor="csv-upload" className="cursor-pointer px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 ease-in-out">
-              {t.uploadCsvButton}
+          <div>
+            <label htmlFor="name" className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2">
+              {t.restaurantName} <span className="text-red-500">*</span>
             </label>
             <input
-              id="csv-upload"
-              type="file"
-              accept=".csv, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-              onChange={handleFileUpload}
-              className="hidden"
+              type="text"
+              id="name"
+              name="name"
+              value={currentRestaurant?.name || ''}
+              onChange={(e) => setCurrentRestaurant({ ...currentRestaurant!, name: e.target.value })}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 dark:text-gray-300 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-700 dark:border-gray-600"
+              required
             />
-            {uploadMessage && <p className="mt-2 text-green-500 text-sm">{uploadMessage}</p>}
-            {uploadError && <p className="mt-2 text-red-500 text-sm">{uploadError}</p>}
-            <p className="mt-4 text-gray-600 dark:text-gray-400 text-sm">
-                Format attendu du fichier: `Date, Montant, Types de dépenses / revenus`
-            </p>
           </div>
+          <div>
+            <label htmlFor="address" className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2">
+              {t.address}
+            </label>
+            <input
+              type="text"
+              id="address"
+              name="address"
+              value={currentRestaurant?.address || ''}
+              onChange={(e) => setCurrentRestaurant({ ...currentRestaurant!, address: e.target.value })}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 dark:text-gray-300 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-700 dark:border-gray-600"
+            />
+          </div>
+          <div>
+            <label htmlFor="city" className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2">
+              {t.city}
+            </label>
+            <input
+              type="text"
+              id="city"
+              name="city"
+              value={currentRestaurant?.city || ''}
+              onChange={(e) => setCurrentRestaurant({ ...currentRestaurant!, city: e.target.value })}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 dark:text-gray-300 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-700 dark:border-gray-600"
+            />
+          </div>
+          <div>
+            <label htmlFor="zip_code" className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2">
+              {t.zipCode}
+            </label>
+            <input
+              type="text"
+              id="zip_code"
+              name="zip_code"
+              value={currentRestaurant?.zip_code || ''}
+              onChange={(e) => setCurrentRestaurant({ ...currentRestaurant!, zip_code: e.target.value })}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 dark:text-gray-300 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-700 dark:border-gray-600"
+            />
+          </div>
+          <div>
+            <label htmlFor="country" className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2">
+              {t.country}
+            </label>
+            <input
+              type="text"
+              id="country"
+              name="country"
+              value={currentRestaurant?.country || ''}
+              onChange={(e) => setCurrentRestaurant({ ...currentRestaurant!, country: e.target.value })}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 dark:text-gray-300 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-700 dark:border-gray-600"
+            />
+          </div>
+          <div>
+            <label htmlFor="phone" className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2">
+              {t.phone}
+            </label>
+            <input
+              type="text"
+              id="phone"
+              name="phone"
+              value={currentRestaurant?.phone || ''}
+              onChange={(e) => setCurrentRestaurant({ ...currentRestaurant!, phone: e.target.value })}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 dark:text-gray-300 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-700 dark:border-gray-600"
+            />
+          </div>
+          <div>
+            <label htmlFor="email" className="block text-gray-700 dark:text-gray-300 text-sm font-bold mb-2">
+              {t.email}
+            </label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              value={currentRestaurant?.email || ''}
+              onChange={(e) => setCurrentRestaurant({ ...currentRestaurant!, email: e.target.value })}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 dark:text-gray-300 leading-tight focus:outline-none focus:shadow-outline dark:bg-gray-700 dark:border-gray-600"
+            />
+          </div>
+          <div className="flex justify-end space-x-4 mt-6">
+            <button
+              type="button"
+              onClick={() => {
+                setIsModalOpen(false);
+                setSiretInput(''); // Clear SIRET input on modal close
+              }}
+              className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-md transition-colors duration-200 ease-in-out"
+            >
+              {t.cancel}
+            </button>
+            <button
+              type="submit"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition-colors duration-200 ease-in-out"
+            >
+              {t.save}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 
-          {isLoading ? (
-            <p className="text-center text-gray-600 dark:text-gray-400">{t.fetchingData}</p>
-          ) : error ? (
-            <p className="text-center text-red-500">{error}</p>
-          ) : financialData.length === 0 ? (
-            <p className="text-center text-gray-600 dark:text-gray-400">{t.noDataAvailable}</p>
-          ) : (
-            <div className="space-y-4">
-              {/* Detailed Income Statement Sections */}
-              <DetailedAccountGroup
-                title={t.revenuesSection}
-                accounts={categoryGroups.revenues}
-                colorClass="text-blue-600 dark:text-blue-400"
-              />
 
-              <DetailedAccountGroup
-                title={t.cogsSection}
-                accounts={categoryGroups.cogs}
-                colorClass="text-red-600 dark:text-red-400"
-              />
-
-              <DetailedAccountGroup
-                title={t.personnelCostsSection}
-                accounts={categoryGroups.personnel}
-                colorClass="text-red-600 dark:text-red-400"
-              />
-
-              <DetailedAccountGroup
-                title={t.operatingExpensesSection}
-                accounts={categoryGroups.operatingExpenses}
-                colorClass="text-red-600 dark:text-red-400"
-              />
-
-              <DetailedAccountGroup
-                title={t.nonOperatingSection}
-                accounts={categoryGroups.nonOperating}
-                colorClass="text-gray-600 dark:text-gray-400"
-              />
+  // Render content based on active module
+  const renderContent = () => {
+    switch (activeModule) {
+      case 'dashboard':
+        return (
+          <div className="p-8 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+            <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-6">Tableau de Bord Général</h2>
+            <p className="text-gray-600 dark:text-gray-400">
+              Bienvenue sur le tableau de bord consolidé de RestoPilot. Ici, vous aurez une vue d'ensemble de la performance de tous vos établissements.
+            </p>
+            {/* Placeholder for consolidated KPIs, alerts etc. */}
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-gray-50 dark:bg-gray-700 p-6 rounded-lg shadow-sm">
+                <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-3">Aperçu Financier Global</h3>
+                <p className="text-gray-600 dark:text-gray-400">CA Total: XX {t.currencySymbol}</p>
+                <p className="text-gray-600 dark:text-gray-400">Marge Brute Moyenne: YY %</p>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-700 p-6 rounded-lg shadow-sm">
+                <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-3">Alertes & Notifications</h3>
+                <ul className="list-disc list-inside text-gray-600 dark:text-gray-400">
+                  <li>Licence de restaurant "Le Gourmet" expire le 31/12/2025.</li>
+                  <li>Stock de matières premières bas pour "La Brasserie".</li>
+                </ul>
+              </div>
             </div>
-          )}
-        </section>
+          </div>
+        );
+      case 'restaurants':
+        return (
+          <div className="p-8 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+            <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-6">
+              {t.manageRestaurants}
+            </h2>
+            <button
+              onClick={() => {
+                setCurrentRestaurant({ id: '', name: '', siret: '', address: '', city: '', zip_code: '', country: '', phone: '', email: '' }); // Initialize siret
+                setSiretInput(''); // Clear siret input for new restaurant
+                setIsModalOpen(true);
+              }}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 ease-in-out mb-6"
+            >
+              <PlusCircle size={18} className="inline-block mr-2" /> {t.addRestaurant}
+            </button>
 
-        {/* Section Key Performance Indicators (KPI's) */}
-        <section className="bg-white dark:bg-gray-800 shadow-lg rounded-xl p-6 lg:col-span-1">
-          <h2 className="text-2xl font-semibold text-gray-800 dark:text-white mb-6 border-b pb-3 border-gray-200 dark:border-gray-700">
-            {t.section2Title}
-          </h2>
+            {isLoading ? (
+              <p className="text-gray-600 dark:text-gray-400">{t.loadingRestaurants}</p>
+            ) : error ? (
+              <p className="text-red-500">{error}</p>
+            ) : restaurants.length === 0 ? (
+              <p className="text-gray-600 dark:text-gray-400">Aucun établissement enregistré. Commencez par en ajouter un !</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        {t.restaurantName}
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        {t.siret}
+                      </th> {/* Display SIRET in table */}
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        {t.address}
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        {t.phone}
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    {restaurants.map((restaurant) => (
+                      <tr key={restaurant.id}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                          {restaurant.name}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {restaurant.siret || 'N/A'}
+                        </td> {/* Display SIRET */}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {restaurant.address}, {restaurant.city}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {restaurant.phone}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <button
+                            onClick={() => {
+                              setCurrentRestaurant(restaurant);
+                              setSiretInput(restaurant.siret || ''); // Set siretInput when editing
+                              setIsModalOpen(true);
+                            }}
+                            className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-4"
+                            title={t.editRestaurant}
+                          >
+                            <Edit size={18} className="inline-block" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteRestaurant(restaurant.id)}
+                            className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                            title={t.deleteRestaurant}
+                          >
+                            <Trash2 size={18} className="inline-block" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {isModalOpen && <RestaurantModal />}
+          </div>
+        );
+      case 'compte-gestion':
+        if (!selectedRestaurantId) {
+          return (
+            <div className="p-8 bg-white dark:bg-gray-800 rounded-xl shadow-lg text-center">
+              <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">
+                {t.noRestaurantSelected}
+              </h2>
+            </div>
+          );
+        }
+        return <CompteDeGestion restaurantId={selectedRestaurantId} />;
+      default:
+        return null;
+    }
+  };
 
-          {isLoading ? (
-            <p className="text-center text-gray-600 dark:text-gray-400">{t.fetchingData}</p>
-          ) : error ? (
-            <p className="text-center text-red-500">{error}</p>
-          ) : financialData.length === 0 ? (
-            <p className="text-center text-gray-600 dark:text-gray-400">{t.noDataAvailable}</p>
-          ) : (
-            <div className="space-y-4">
-              <div className="grid grid-cols-4 gap-2 text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2 border-b pb-2 border-gray-200 dark:border-gray-700">
-                <span>{t.indicator}</span>
-                <span className="text-right">{t.currentMonth}</span>
-                <span className="text-right">{t.vsN1}</span>
-                <span className="text-right">
-                  {t.vsBudget}
+  const selectedRestaurant = restaurants.find(r => r.id === selectedRestaurantId);
+
+  return (
+    <div className="flex min-h-screen bg-gray-100 dark:bg-gray-900 font-inter text-gray-900 dark:text-white">
+      {/* Sidebar */}
+      <aside className="w-64 bg-gray-800 dark:bg-gray-900 text-white shadow-lg flex flex-col">
+        <div className="p-6 text-2xl font-bold text-blue-400 border-b border-gray-700">
+          {t.appName}
+        </div>
+        <nav className="flex-grow p-4 space-y-2">
+          <button
+            onClick={() => setActiveModule('dashboard')}
+            className={`flex items-center w-full px-4 py-2 rounded-md transition-colors duration-200 ease-in-out
+              ${activeModule === 'dashboard' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-gray-700 text-gray-300'}`}
+          >
+            <LayoutDashboard size={20} className="mr-3" /> {t.dashboard}
+          </button>
+          <button
+            onClick={() => setActiveModule('restaurants')}
+            className={`flex items-center w-full px-4 py-2 rounded-md transition-colors duration-200 ease-in-out
+              ${activeModule === 'restaurants' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-gray-700 text-gray-300'}`}
+          >
+            <Utensils size={20} className="mr-3" /> {t.restaurants}
+          </button>
+          <button
+            onClick={() => setActiveModule('compte-gestion')}
+            className={`flex items-center w-full px-4 py-2 rounded-md transition-colors duration-200 ease-in-out
+              ${activeModule === 'compte-gestion' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-gray-700 text-gray-300'}`}
+          >
+            <DollarSign size={20} className="mr-3" /> Compte de Gestion
+          </button>
+          {/* Other menu items - placeholders for future modules */}
+          <button
+            onClick={() => setActiveModule('personnel')}
+            className={`flex items-center w-full px-4 py-2 rounded-md transition-colors duration-200 ease-in-out
+              ${activeModule === 'personnel' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-gray-700 text-gray-300'}`}
+          >
+            <Users size={20} className="mr-3" /> {t.personnel}
+          </button>
+          <button
+            onClick={() => setActiveModule('planning')}
+            className={`flex items-center w-full px-4 py-2 rounded-md transition-colors duration-200 ease-in-out
+              ${activeModule === 'planning' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-gray-700 text-gray-300'}`}
+          >
+            <CalendarDays size={20} className="mr-3" /> {t.planning}
+          </button>
+          <button
+            onClick={() => setActiveModule('paie')}
+            className={`flex items-center w-full px-4 py-2 rounded-md transition-colors duration-200 ease-in-out
+              ${activeModule === 'paie' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-gray-700 text-gray-300'}`}
+          >
+            <DollarSign size={20} className="mr-3" /> {t.paie}
+          </button>
+          <button
+            onClick={() => setActiveModule('documents')}
+            className={`flex items-center w-full px-4 py-2 rounded-md transition-colors duration-200 ease-in-out
+              ${activeModule === 'documents' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-gray-700 text-gray-300'}`}
+          >
+            <FileText size={20} className="mr-3" /> {t.documents}
+          </button>
+          <button
+            onClick={() => setActiveModule('settings')}
+            className={`flex items-center w-full px-4 py-2 rounded-md transition-colors duration-200 ease-in-out
+              ${activeModule === 'settings' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-gray-700 text-gray-300'}`}
+          >
+            <Settings size={20} className="mr-3" /> {t.settings}
+          </button>
+        </nav>
+        <div className="p-4 border-t border-gray-700">
+          <button
+            onClick={() => alert(t.logout)} // Placeholder for logout functionality
+            className="flex items-center w-full px-4 py-2 rounded-md text-gray-300 hover:bg-gray-700 transition-colors duration-200 ease-in-out"
+          >
+            <LogOut size={20} className="mr-3" /> {t.logout}
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col">
+        {/* Top Header */}
+        <header className="bg-white dark:bg-gray-800 shadow-md p-4 flex justify-between items-center">
+          <div className="flex items-center">
+            {/* Restaurant Selector */}
+            {activeModule !== 'restaurants' && ( // Hide selector on restaurant management page
+              <div className="relative inline-block text-gray-700 dark:text-gray-300 mr-4">
+                <select
+                  value={selectedRestaurantId || ''}
+                  onChange={handleRestaurantSelect}
+                  className="block appearance-none w-full bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-white py-2 px-4 pr-8 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                >
+                  <option value="">{t.selectRestaurant}</option>
+                  {restaurants.map((restaurant) => (
+                    <option key={restaurant.id} value={restaurant.id}>
+                      {restaurant.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 dark:text-gray-300">
+                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 6.757 7.586 5.343 9z" />
+                  </svg>
+                </div>
+              </div>
+            )}
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
+              {selectedRestaurant ? selectedRestaurant.name : t.appName}
+              {selectedRestaurant && selectedRestaurant.address && (
+                <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
+                  ({selectedRestaurant.address}, {selectedRestaurant.city})
                 </span>
-              </div>
+              )}
+            </h2>
+          </div>
+          {/* Language Toggle (from previous App.tsx) */}
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setLanguage('fr')}
+              className={`px-3 py-1 rounded-md text-sm font-semibold ${language === 'fr' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white'}`}
+            >
+              FR
+            </button>
+            <button
+              onClick={() => setLanguage('en')}
+              className={`px-3 py-1 rounded-md text-sm font-semibold ${language === 'en' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white'}`}
+            >
+              EN
+            </button>
+          </div>
+        </header>
 
-              <h3 className="text-xl font-medium text-blue-600 dark:text-blue-400 mb-2">{t.products}</h3>
-              <KPIRow label={t.caTotal} value={kpis.caTotal} isBold n1Value={comparisons.caTotalN1} budgetValue={comparisons.caTotalBudget} t={t} />
-              {/* Manual comparison inputs remain for now */}
-              <div className="flex justify-between items-center py-2">
-                <label htmlFor="caTotalN1" className="text-gray-700 dark:text-gray-300 text-sm">{t.caTotalN1}</label>
-                <input type="number" id="caTotalN1" name="caTotalN1" value={comparisons.caTotalN1} onChange={handleComparisonChange} className="p-1 border rounded-md text-right w-1/3 dark:bg-gray-800 dark:text-white text-sm" />
-              </div>
-              <div className="flex justify-between items-center py-2">
-                <label htmlFor="caTotalBudget" className="text-gray-700 dark:text-gray-300 text-sm">{t.caTotalBudget}</label>
-                <input type="number" id="caTotalBudget" name="caTotalBudget" value={comparisons.caTotalBudget} onChange={handleComparisonChange} className="p-1 border rounded-md text-right w-1/3 dark:bg-gray-800 dark:text-white text-sm" />
-              </div>
+        {/* Notifications area (global for the app) */}
+        {notification && (
+          <div className={`fixed top-4 right-4 p-3 rounded-md shadow-lg z-50
+            ${notification.type === 'info' ? 'bg-blue-500 text-white' : ''}
+            ${notification.type === 'success' ? 'bg-green-500 text-white' : ''}
+            ${notification.type === 'error' ? 'bg-red-500 text-white' : ''}`}>
+            {notification.message}
+          </div>
+        )}
 
-              <h3 className="text-xl font-medium text-green-600 dark:text-green-400 mt-6 mb-2">{t.profitability}</h3>
-              <KPIRow label={t.margeBruteTotale} value={kpis.margeBruteTotale} isBold n1Value={comparisons.margeBruteTotalN1} budgetValue={comparisons.margeBruteTotalBudget} t={t} />
-              <KPIRow label={t.margeBruteTotalePct} value={kpis.margeBruteTotalePct} isPercentage t={t} />
-              <KPIRow label={t.margeBruteFoodPct} value={kpis.margeBruteFoodPct} isPercentage t={t} />
-              <KPIRow label={t.margeBruteBoissonsPct} value={kpis.margeBruteBoissonsPct} isPercentage t={t} />
-              <div className="flex justify-between items-center py-2">
-                <label htmlFor="margeBruteTotalN1" className="text-gray-700 dark:text-gray-300 text-sm">{t.margeBruteN1}</label>
-                <input type="number" id="margeBruteTotalN1" name="margeBruteTotalN1" value={comparisons.margeBruteTotalN1} onChange={handleComparisonChange} className="p-1 border rounded-md text-right w-1/3 dark:bg-gray-800 dark:text-white text-sm" />
-              </div>
-              <div className="flex justify-between items-center py-2">
-                <label htmlFor="margeBruteTotalBudget" className="text-gray-700 dark:text-gray-300 text-sm">{t.margeBruteBudget}</label>
-                <input type="number" id="margeBruteTotalBudget" name="margeBruteTotalBudget" value={comparisons.margeBruteTotalBudget} onChange={handleComparisonChange} className="p-1 border rounded-md text-right w-1/3 dark:bg-gray-800 dark:text-white text-sm" />
-              </div>
-
-              <KPIRow label={t.ebitda} value={kpis.ebitda} isBold n1Value={comparisons.ebitdaN1} budgetValue={comparisons.ebitdaBudget} t={t} />
-              <KPIRow label={t.ebitdaPct} value={kpis.ebitdaPct} isPercentage t={t} />
-              <div className="flex justify-between items-center py-2">
-                <label htmlFor="ebitdaN1" className="text-gray-700 dark:text-gray-300 text-sm">{t.ebitdaN1}</label>
-                <input type="number" id="ebitdaN1" name="ebitdaN1" value={comparisons.ebitdaN1} onChange={handleComparisonChange} className="p-1 border rounded-md text-right w-1/3 dark:bg-gray-800 dark:text-white text-sm" />
-              </div>
-              <div className="flex justify-between items-center py-2">
-                <label htmlFor="ebitdaBudget" className="text-gray-700 dark:text-gray-300 text-sm">{t.ebitdaBudget}</label>
-                <input type="number" id="ebitdaBudget" name="ebitdaBudget" value={comparisons.ebitdaBudget} onChange={handleComparisonChange} className="p-1 border rounded-md text-right w-1/3 dark:bg-gray-800 dark:text-white text-sm" />
-              </div>
-
-              <h3 className="text-xl font-medium text-purple-600 dark:text-purple-400 mt-6 mb-2">{t.costControl}</h3>
-              <KPIRow label={t.ratioCoutMatiereTotalPct} value={kpis.ratioCoutMatiereTotalPct} isPercentage t={t} />
-              <KPIRow label={t.ratioChargesPersonnelTotalPct} value={kpis.ratioChargesPersonnelTotalPct} isPercentage t={t} />
-              <KPIRow label={t.ratioChargesExploitationTotalPct} value={kpis.ratioChargesExploitationTotalPct} isPercentage t={t} />
-            </div>
-          )}
-        </section>
-
-        {/* Charts Section */}
-        <section className="bg-white dark:bg-gray-800 shadow-lg rounded-xl p-6 lg:col-span-1 xl:col-span-1">
-          <h2 className="text-2xl font-semibold text-gray-800 dark:text-white mb-6 border-b pb-3 border-gray-200 dark:border-gray-700">
-            {t.section3Title}
-          </h2>
-
-          {isLoading ? (
-            <p className="text-center text-gray-600 dark:text-gray-400">{t.fetchingData}</p>
-          ) : error ? (
-            <p className="text-center text-red-500">{error}</p>
-          ) : financialData.length === 0 ? (
-            <p className="text-center text-gray-600 dark:text-gray-400">{t.noDataAvailable}</p>
-          ) : (
-            <div className="space-y-8">
-              <div>
-                <h3 className="text-xl font-medium text-gray-800 dark:text-white mb-4">{t.revenueDistribution}</h3>
-                <ResponsiveContainer width="100%" height={200}>
-                  <PieChart>
-                    <Pie
-                      data={[
-                        { name: t.restaurant, value: kpis.caRestauration },
-                        { name: t.bar, value: kpis.caBar },
-                        { name: t.other, value: kpis.caAutresProduits },
-                      ]}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {
-                        [kpis.caRestauration, kpis.caBar, kpis.caAutresProduits].map((entry, index) => (
-                          <Cell key={`cell-ca-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))
-                      }
-                    </Pie>
-                    <Tooltip formatter={(value) => `${value.toFixed(2)} ${t.currencySymbol}`} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div>
-                <h3 className="text-xl font-medium text-gray-800 dark:text-white mb-4">{t.costOfGoodsDistribution}</h3>
-                <ResponsiveContainer width="100%" height={200}>
-                  <PieChart>
-                    <Pie
-                      data={[
-                        { name: t.food, value: kpis.coutMatiereFood },
-                        { name: t.beverages, value: kpis.coutMatiereBoissons },
-                      ]}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      fill="#82ca9d"
-                      dataKey="value"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {
-                        [kpis.coutMatiereFood, kpis.coutMatiereBoissons].map((entry, index) => (
-                          <Cell key={`cell-cm-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))
-                      }
-                    </Pie>
-                    <Tooltip formatter={(value) => `${value.toFixed(2)} ${t.currencySymbol}`} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div>
-                <h3 className="text-xl font-medium text-gray-800 dark:text-white mb-4">{t.operatingExpensesDistribution}</h3>
-                <ResponsiveContainer width="100%" height={200}>
-                  <PieChart>
-                    <Pie
-                      data={[
-                        { name: t.personnel, value: kpis.chargesPersonnelTotal },
-                        { name: t.rentCharges, value: kpis.loyersChargesLocatives },
-                        { name: t.energy, value: kpis.energieCharges },
-                        { name: t.otherOpExp, value: kpis.autresChargesExploitation },
-                      ]}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      fill="#ffc658"
-                      dataKey="value"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {
-                        [kpis.chargesPersonnelTotal, kpis.loyersChargesLocatives, kpis.energieCharges, kpis.autresChargesExploitation].map((entry, index) => (
-                          <Cell key={`cell-ce-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))
-                      }
-                    </Pie>
-                    <Tooltip formatter={(value) => `${value.toFixed(2)} ${t.currencySymbol}`} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div>
-                <h3 className="text-xl font-medium text-gray-800 dark:text-white mb-4">{t.caEbitdaEvolution}</h3>
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={historicalData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                    <XAxis dataKey="name" stroke="#555" />
-                    <YAxis yAxisId="left" orientation="left" stroke="#4F88F7" />
-                    <YAxis yAxisId="right" orientation="right" stroke="#FFC107" />
-                    <Tooltip formatter={(value) => `${value.toFixed(2)} ${t.currencySymbol}`} />
-                    <Legend />
-                    <Bar yAxisId="left" dataKey="ca" fill="#4F88F7" name={t.revenue} />
-                    <Bar yAxisId="right" dataKey="ebitda" fill="#FFC107" name={t.ebitda} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          )}
-        </section>
-      </main>
-
-      <footer className="mt-8 text-center text-gray-600 dark:text-gray-400 text-sm p-4">
-        <p>{t.footerCalculations}</p>
-        <p>{t.footerSimplified}</p>
-        <p>{t.footerComparisons}</p>
-      </footer>
+        {/* Main content area */}
+        <main className="flex-1 p-8 overflow-y-auto">
+          {renderContent()}
+        </main>
+      </div>
     </div>
   );
 }
